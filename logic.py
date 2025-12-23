@@ -3,6 +3,11 @@ from datetime import datetime
 from config import DATABASE 
 import os
 import cv2
+import numpy as np
+from math import sqrt, ceil, floor
+
+if not os.path.exists("hidden_img"):
+    os.mkdir("hidden_img")
 
 class DatabaseManager:
     def __init__(self, database):
@@ -112,14 +117,89 @@ class DatabaseManager:
                         LIMIT 10
         ''')
             return cur.fetchall()
-# Tanda * itu menghitung semua baris    
+# Tanda * itu menghitung semua baris   
+
+    def get_winners_img(self, user_id):
+        conn = sqlite3.connect(self.database)
+        with conn:
+            cur = conn.cursor()
+            cur.execute(''' 
+SELECT image FROM winners 
+INNER JOIN prizes ON 
+winners.prize_id = prizes.prize_id
+WHERE user_id = ?''', (user_id, ))
+            return cur.fetchall()
+    def get_user_score(self, user_id):
+        conn = sqlite3.connect(self.database)
+        with conn:
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT COUNT(*) FROM winners WHERE user_id = ?", 
+            (user_id,)
+        )
+            return cur.fetchall()[0][0]
   
 def hide_img(img_name):
     image = cv2.imread(f'img/{img_name}')
+    if image is None:
+        print("Gagal baca untuk hide:", img_name)
+        return
     blurred_image = cv2.GaussianBlur(image, (15, 15), 0)
     pixelated_image = cv2.resize(blurred_image, (30, 30), interpolation=cv2.INTER_NEAREST)
     pixelated_image = cv2.resize(pixelated_image, (image.shape[1], image.shape[0]), interpolation=cv2.INTER_NEAREST)
     cv2.imwrite(f'hidden_img/{img_name}', pixelated_image)
+
+def create_collage(image_paths):
+    images = []
+
+    # Baca semua gambar
+    for path in image_paths:
+        image = cv2.imread(path)
+
+        # Kalau gagal baca → skip
+        if image is None:
+            print("Gagal baca:", path)
+            continue
+
+        images.append(image)
+
+    # Kalau tidak ada gambar sama sekali
+    if len(images) == 0:
+        print("Tidak ada gambar yang bisa dibuat kolase.")
+        return None
+
+    # Samakan ukuran ke ukuran gambar pertama
+    h, w = images[0].shape[:2]
+    images = [cv2.resize(img, (w, h)) for img in images]
+
+    num_images = len(images)
+    num_cols = max(1, int(sqrt(num_images)))
+    num_rows = ceil(num_images / num_cols)
+
+    # Buat kanvas kolase
+    collage = np.zeros((num_rows * h, num_cols * w, 3), dtype=np.uint8)
+
+    # Tempatkan gambar
+    for i, img in enumerate(images):
+        r = i // num_cols
+        c = i % num_cols
+        collage[r*h:(r+1)*h, c*w:(c+1)*w] = img
+
+    return collage
+
+m = DatabaseManager(DATABASE)
+info = m.get_winners_img("user_id")
+prizes = [x[0] for x in info]
+for img in os.listdir("img"):
+    hide_img(img)
+image_paths = os.listdir('img')
+image_paths = [f'img/{x}' if x in prizes else f'hidden_img/{x}' for x in image_paths]
+collage = create_collage(image_paths)
+
+if collage is not None:
+    cv2.imshow('Collage', collage)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
 if __name__ == '__main__':
     manager = DatabaseManager(DATABASE)
