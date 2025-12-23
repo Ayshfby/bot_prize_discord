@@ -60,6 +60,26 @@ async def myscore(ctx):
     else:
         await ctx.send(f"{ctx.author.mention}, jumlah hadiah yang sudah kamu dapatkan adalah **{score}** ")
 
+@bot.command()
+async def myimages(ctx):
+    user_id = ctx.author.id
+    images = manager.get_winners_img(user_id)
+
+    if not images:
+        await ctx.send(f"{ctx.author.mention}, kamu belum punya gambar apa-apa 😅")
+        return
+    
+    await ctx.send(f"{ctx.author.mention}, ini gambar yang sudah kamu dapatkan 👇")
+
+    for img in images:
+        filename = img[0]  # karena hasil fetchall() berbentuk [(img1,), (img2,)...]
+        path = f"img/{filename}"
+
+        if os.path.exists(path):
+            await ctx.send(file=discord.File(path))
+        else:
+            await ctx.send(f"File `{filename}` tidak ditemukan di folder img 🤨")
+
 @bot.event
 async def on_interaction(interaction):
     if interaction.type == discord.InteractionType.component:
