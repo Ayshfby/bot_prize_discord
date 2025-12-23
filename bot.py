@@ -50,6 +50,16 @@ async def rating(ctx):
     res = f'|USER_NAME    |COUNT_PRIZE|\n{"_"*26}\n' + res
     await ctx.send(f"```\n{res}\n```")
 
+@bot.command()
+async def myscore(ctx):
+    user_id = ctx.author.id
+    score = manager.get_user_score(user_id)
+
+    if score == 0:
+        await ctx.send(f"{ctx.author.mention}, kamu belum mendapatkan hadiah apa pun ")
+    else:
+        await ctx.send(f"{ctx.author.mention}, jumlah hadiah yang sudah kamu dapatkan adalah **{score}** ")
+
 @bot.event
 async def on_interaction(interaction):
     if interaction.type == discord.InteractionType.component:
